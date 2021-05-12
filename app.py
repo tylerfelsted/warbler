@@ -152,7 +152,7 @@ def users_show(user_id):
                 .order_by(Message.timestamp.desc())
                 .limit(100)
                 .all())
-    return render_template('users/show.html', user=user, messages=messages)
+    return render_template('users/show.html', user=user, messages=messages, likes=[m.id for m in g.user.likes])
 
 
 @app.route('/users/<int:user_id>/following')
@@ -191,7 +191,7 @@ def add_follow(follow_id):
     g.user.following.append(followed_user)
     db.session.commit()
 
-    return redirect(f"/users/{g.user.id}/following")
+    return redirect(request.referrer)
 
 
 @app.route('/users/stop-following/<int:follow_id>', methods=['POST'])
@@ -206,7 +206,7 @@ def stop_following(follow_id):
     g.user.following.remove(followed_user)
     db.session.commit()
 
-    return redirect(f"/users/{g.user.id}/following")
+    return redirect(request.referrer)
 
 @app.route('/user/<int:user_id>/liked')
 def show_likes(user_id):
@@ -216,7 +216,7 @@ def show_likes(user_id):
         return redirect('/')
 
     user = User.query.get_or_404(user_id)
-    return render_template('/users/show.html', user=user, messages=user.likes)
+    return render_template('/users/show.html', user=user, messages=user.likes, likes=[m.id for m in g.user.likes])
 
 
 @app.route('/users/add_like/<int:message_id>', methods=["POST"])
@@ -228,12 +228,11 @@ def add_like(message_id):
     if like:
         db.session.delete(like)
         db.session.commit()
-        return redirect('/')
     else:
         new_like = Likes(user_id=g.user.id, message_id=message_id)
         db.session.add(new_like)
         db.session.commit()
-        return redirect('/')
+    return redirect(request.referrer)
 
 
 @app.route('/users/profile', methods=["GET", "POST"])

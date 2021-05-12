@@ -16,13 +16,13 @@ class Follows(db.Model):
 
     user_being_followed_id = db.Column(
         db.Integer,
-        db.ForeignKey('users.id', ondelete="cascade"),
+        db.ForeignKey('users.id', ondelete="CASCADE"),
         primary_key=True,
     )
 
     user_following_id = db.Column(
         db.Integer,
-        db.ForeignKey('users.id', ondelete="cascade"),
+        db.ForeignKey('users.id', ondelete="CASCADE"),
         primary_key=True,
     )
 
@@ -39,12 +39,12 @@ class Likes(db.Model):
 
     user_id = db.Column(
         db.Integer,
-        db.ForeignKey('users.id', ondelete='cascade')
+        db.ForeignKey('users.id', ondelete='CASCADE')
     )
 
     message_id = db.Column(
         db.Integer,
-        db.ForeignKey('messages.id', ondelete='cascade'),
+        db.ForeignKey('messages.id', ondelete='CASCADE'),
         unique=True
     )
 
