@@ -5,7 +5,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -208,6 +208,33 @@ def stop_following(follow_id):
 
     return redirect(f"/users/{g.user.id}/following")
 
+@app.route('/user/<int:user_id>/liked')
+def show_likes(user_id):
+    """Show list of messages this user has liked"""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect('/')
+
+    user = User.query.get_or_404(user_id)
+    return render_template('/users/show.html', user=user, messages=user.likes)
+
+
+@app.route('/users/add_like/<int:message_id>', methods=["POST"])
+def add_like(message_id):
+    if not g.user:
+        flash("Access unathorized.", "danger")
+        return redirect('/')
+    like = Likes.query.filter(Likes.user_id == g.user.id, Likes.message_id == message_id).one_or_none()
+    if like:
+        db.session.delete(like)
+        db.session.commit()
+        return redirect('/')
+    else:
+        new_like = Likes(user_id=g.user.id, message_id=message_id)
+        db.session.add(new_like)
+        db.session.commit()
+        return redirect('/')
+
 
 @app.route('/users/profile', methods=["GET", "POST"])
 def profile():
@@ -320,7 +347,7 @@ def homepage():
                     .limit(100)
                     .all())
 
-        return render_template('home.html', messages=messages)
+        return render_template('home.html', messages=messages, likes=[m.id for m in g.user.likes])
 
     else:
         return render_template('home-anon.html')
