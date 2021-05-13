@@ -15,7 +15,7 @@ from models import db, connect_db, Message, User
 # before we import our app, since that will have already
 # connected to the database
 
-os.environ['DATABASE_URL'] = "postgresql:///warbler-test"
+os.environ['DATABASE_URL'] = "postgresql://postgres:postgres@localhost:5433/warbler-test"
 
 
 # Now we can import app
@@ -44,22 +44,33 @@ class MessageViewTestCase(TestCase):
 
         self.client = app.test_client()
 
-        self.testuser = User.signup(username="testuser",
+        self.testuser1 = User.signup(username="testuser",
                                     email="test@test.com",
                                     password="testuser",
                                     image_url=None)
-
+        self.testuser2 = User.signup(username="testuser2",
+                                    email="test2@test.com",
+                                    password="testuser2",
+                                    image_url=None)
+        
         db.session.commit()
+        
+        self.test_message = Message(text="Test Message", user_id=self.testuser1.id)
+
+        db.session.add(self.test_message)
+        db.session.commit()
+        db.session.refresh(self.test_message)
+        db.session.expunge(self.test_message)
 
     def test_add_message(self):
-        """Can use add a message?"""
+        """Can user add a message?"""
 
         # Since we need to change the session to mimic logging in,
         # we need to use the changing-session trick:
 
         with self.client as c:
             with c.session_transaction() as sess:
-                sess[CURR_USER_KEY] = self.testuser.id
+                sess[CURR_USER_KEY] = self.testuser1.id
 
             # Now, that session setting is saved, so we can have
             # the rest of ours test
@@ -69,5 +80,52 @@ class MessageViewTestCase(TestCase):
             # Make sure it redirects
             self.assertEqual(resp.status_code, 302)
 
-            msg = Message.query.one()
+            msg = Message.query.offset(1).one()
             self.assertEqual(msg.text, "Hello")
+
+    def test_show_message(self):
+        """Message displays properly"""
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser1.id
+
+            resp = c.get(f"messages/{self.test_message.id}")
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('<p class="single-message">Test Message</p>', html)
+
+    def test_delete_message(self):
+        """User can delete message"""
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser1.id
+            
+            resp = c.post(f"messages/{self.test_message.id}/delete")
+
+            self.assertEqual(resp.status_code, 302)
+            
+            self.assertEqual(Message.query.count(), 0)
+
+    def test_cannot_delete_message(self):
+        """User cannot delete a message that does not belong to them."""
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser2.id
+            
+            resp = c.post(f"messages/{self.test_message.id}/delete", follow_redirects=True)
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+
+            self.assertIn('<div class="alert alert-danger">Access unauthorized.</div>', html)
+
+
+
+
+
+
+        
